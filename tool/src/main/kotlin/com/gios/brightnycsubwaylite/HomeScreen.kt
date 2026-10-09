@@ -1,9 +1,6 @@
 package com.gios.brightnycsubwaylite
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
-import android.location.LocationManager
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -25,7 +22,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -35,6 +31,12 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
+import com.thelightphone.sdk.callRemoteServiceMethod
+import com.thelightphone.sdk.shared.LightServiceMethod
+import com.thelightphone.sdk.shared.getOrNull
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import com.thelightphone.sdk.rememberPermissionRequestLauncher
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
@@ -218,7 +220,6 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
         var showCrash by remember { mutableStateOf(lastCrash != null) }
         var tab by remember { mutableStateOf(HomeTab.STARRED) }
 
-        val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val locationLauncher = rememberPermissionRequestLauncher(LOCATION_PERMISSION)
 
@@ -227,7 +228,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
         val locate: () -> Unit = {
             scope.launch {
                 viewModel.setLocalStatus(LocalStatus.LOADING)
-                val gps = lastKnownLocation(context)
+                val gps = lightOsLocation()
                 if (gps != null) viewModel.onCoords(gps.first, gps.second, "GPS")
                 else viewModel.loadViaIp()
             }
@@ -563,20 +564,28 @@ private fun CrashReportView(trace: String, onDismiss: () -> Unit) {
     }
 }
 
-/** Best-effort last-known location from the system providers (permission required). */
-@SuppressLint("MissingPermission")
-private fun lastKnownLocation(context: Context): Pair<Double, Double>? {
-    val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-    val providers = listOf(
-        LocationManager.GPS_PROVIDER,
-        LocationManager.NETWORK_PROVIDER,
-        LocationManager.FUSED_PROVIDER,
-    )
-    for (p in providers) {
-        try {
-            lm.getLastKnownLocation(p)?.let { return it.latitude to it.longitude }
-        } catch (_: Exception) {
+/**
+ * Asks LightOS for a fix. Holds a location lease for up to eight seconds while it
+ * waits, then gives the lease back. Falls back to the default location set on the
+ * Light dashboard. Returns null when neither is known or permission is missing.
+ */
+private suspend fun lightOsLocation(): Pair<Double, Double>? {
+    try {
+        callRemoteServiceMethod(LightServiceMethod.RequestLocationUpdates, Unit)
+        repeat(8) {
+            val fix = callRemoteServiceMethod(LightServiceMethod.GetCurrentLocation, Unit).getOrNull()
+            val lat = fix?.latitude
+            val lon = fix?.longitude
+            if (lat != null && lon != null) return lat to lon
+            delay(1_000)
+        }
+    } finally {
+        withContext(NonCancellable) {
+            callRemoteServiceMethod(LightServiceMethod.ReleaseLocationUpdates, Unit)
         }
     }
-    return null
+    val home = callRemoteServiceMethod(LightServiceMethod.GetDefaultLocation, Unit).getOrNull()
+    val lat = home?.latitude
+    val lon = home?.longitude
+    return if (lat != null && lon != null) lat to lon else null
 }
