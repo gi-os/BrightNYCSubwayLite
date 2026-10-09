@@ -83,7 +83,7 @@ data class LocalItem(val station: Station, val meters: Double?)
 data class LocalUiState(
     val status: LocalStatus = LocalStatus.IDLE,
     val located: Boolean = false,
-    val source: String = "",     // "GPS" or "approximate"
+    val source: String = "",     // "GPS" when a fix was found
     val city: String = "",
     val boro: String? = null,    // set when browsing a borough manually
     val items: List<LocalItem> = emptyList(),
@@ -156,22 +156,13 @@ class HomeViewModel(
         }
     }
 
-    /** Fallback: approximate location from IP, else browse Manhattan. */
-    fun loadViaIp() {
+    /** No fix from LightOS: browse Manhattan instead of guessing. */
+    fun browseManhattan() {
         viewModelScope.launch(Dispatchers.Default) {
-            _local.value = _local.value.copy(status = LocalStatus.LOADING)
             val store = store()
             val favs = runCatching { store.favoriteRoutes() }.getOrDefault(emptySet())
-            val geo = runCatching { repo.ipLocation() }.getOrNull()
-            val la = geo?.latitude
-            val lo = geo?.longitude
-            if (la != null && lo != null) {
-                val items = store.nearest(la, lo).map { LocalItem(it, it.distanceMetersTo(la, lo)) }
-                _local.value = LocalUiState(LocalStatus.DONE, true, "approximate", geo.city, null, items, favs)
-            } else {
-                val list = store.all.filter { it.boro == "M" }.sortedBy { it.name }.map { LocalItem(it, null) }
-                _local.value = LocalUiState(LocalStatus.DONE, false, "", "", "M", list, favs)
-            }
+            val list = store.all.filter { it.boro == "M" }.sortedBy { it.name }.map { LocalItem(it, null) }
+            _local.value = LocalUiState(LocalStatus.DONE, false, "", "", "M", list, favs)
         }
     }
 
@@ -223,19 +214,19 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
         val scope = rememberCoroutineScope()
         val locationLauncher = rememberPermissionRequestLauncher(LOCATION_PERMISSION)
 
-        // Try precise GPS; if the permission isn't granted or there's no fix,
-        // fall straight through to IP-approximate — never a "denied" dead end.
+        // Ask LightOS for a fix, then the dashboard's default location. With
+        // neither, show Manhattan rather than a "denied" dead end.
         val locate: () -> Unit = {
             scope.launch {
                 viewModel.setLocalStatus(LocalStatus.LOADING)
                 val gps = lightOsLocation()
                 if (gps != null) viewModel.onCoords(gps.first, gps.second, "GPS")
-                else viewModel.loadViaIp()
+                else viewModel.browseManhattan()
             }
         }
 
         LaunchedEffect(tab) {
-            // No permission popup on open — use GPS only if already granted, else IP.
+            // No permission popup on open — use location only if already granted, else browse.
             if (tab == HomeTab.LOCAL && local.status == LocalStatus.IDLE) locate()
         }
 

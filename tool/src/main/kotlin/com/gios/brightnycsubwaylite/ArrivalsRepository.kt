@@ -14,13 +14,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 
-/** Approximate location from IP geolocation (GPS APIs are blocked by the SDK). */
-data class IpGeo(
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    val city: String = "",
-)
-
 /**
  * Fetches and decodes MTA realtime feeds for a single station. The [HttpClient]
  * is created lazily on first use (off the main thread) so it never slows startup.
@@ -58,51 +51,6 @@ class ArrivalsRepository {
             .sortedBy { it.epochSeconds }
     }
 
-    /**
-     * Approximate device location via IP geolocation. Tries several providers so a
-     * single one being blocked/rate-limited doesn't break "nearby". Not GPS-accurate
-     * (neighborhood level) — but the SDK forbids the Android location APIs, so this
-     * is the only automatic option.
-     */
-    suspend fun ipLocation(): IpGeo? {
-        val providers = listOf(
-            "https://ipapi.co/json/",
-            "https://ipwho.is/",
-            "https://freeipapi.com/api/json",
-            "https://get.geojs.io/v1/ip/geo.json",
-        )
-        for (url in providers) {
-            val geo = runCatching {
-                val body: String = client().get(url) { header("Accept", "application/json") }.body()
-                parseGeo(body)
-            }.getOrNull()
-            if (geo != null) return geo
-        }
-        return null
-    }
-
-    private fun parseGeo(body: String): IpGeo? {
-        val obj = runCatching { Json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return null
-        fun num(vararg keys: String): Double? {
-            for (k in keys) {
-                val p = obj[k] as? JsonPrimitive ?: continue
-                val d = p.doubleOrNull ?: p.contentOrNull?.toDoubleOrNull()
-                if (d != null) return d
-            }
-            return null
-        }
-        fun str(vararg keys: String): String {
-            for (k in keys) {
-                val s = (obj[k] as? JsonPrimitive)?.contentOrNull
-                if (!s.isNullOrBlank()) return s
-            }
-            return ""
-        }
-        val lat = num("latitude", "lat")
-        val lon = num("longitude", "lon", "lng")
-        if (lat == null || lon == null) return null
-        return IpGeo(lat, lon, str("city", "cityName", "name"))
-    }
 
     private suspend fun fetch(slug: String): List<GtfsRealtime.Raw> {
         // Pass the already-encoded URL string so the %2F survives to the server.
