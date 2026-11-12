@@ -6,7 +6,26 @@
 
 Live New York City subway arrivals for the Light Phone III, built with the official LightOS SDK for the Light Tool Library.
 
-It reads the MTA's public GTFS-realtime feeds straight from the phone. There is no server in the middle and no API key. It opens on your saved station with Uptown and Downtown side by side, soonest train first.
+It reads the MTA's public GTFS-realtime feeds straight from the phone. There is no server in the middle and no API key.
+
+## What it does
+
+- **Home** is the stations you saved, each with the next trains in both directions. Nothing else.
+- **Directions use real names.** The L at Morgan Av says "Manhattan", not "Uptown". Where the MTA only gives a compass word, the direction is named after where the train is going, and every train on a station page shows its last stop, read from the live feed. A train that is turning back early says so.
+- **Search forgives.** Words match in any order, spelled out or abbreviated ("14th Street Union Square"), with a typo or two, and by the names people actually use ("Myrtle Broadway", "Port Authority", "Citi Field"). Search opens straight on the keyboard.
+- **Nearby** (the pin) lists the closest stations and shows the trains at the nearest one.
+- **Times keep themselves current.** They count down on their own and are fetched again every 30 seconds while the screen is showing. If the signal drops, the last times stay up and are marked as not live.
+- **Favorite lines.** Tap a line on a station page to favorite it. Its trains carry a small star everywhere.
+- **Trains are grouped by where they go**, not by the feed's north and south. At Delancey St-Essex St the F and the J to Brooklyn are listed together.
+
+One row of buttons along the bottom of every screen: nearby, search, refresh.
+
+<p>
+<img src="docs/screenshots/v2-01-home.png" width="24%" alt="Home with two saved stations">
+<img src="docs/screenshots/v2-02-station.png" width="24%" alt="A station page">
+<img src="docs/screenshots/v2-03-search.png" width="24%" alt="Search results for union">
+<img src="docs/screenshots/v2-04-nearby.png" width="24%" alt="Nearby stations">
+</p>
 
 ## How this relates to BrightTransit
 
@@ -20,6 +39,15 @@ The phone talks to the MTA feeds and nothing else. Your saved station stays on t
 
 ```sh
 ./gradlew -DlightSdk.toolOnly=true :tool:assembleDebug
+./gradlew -DlightSdk.toolOnly=true :tool:testDebugUnitTest
+```
+
+The tests run against the real station file and a captured MTA feed. They cover the feed reader, direction names, search and the feed cache.
+
+`tool/src/main/assets/stations.json` is generated from the MTA's open station table:
+
+```sh
+python3 tool/scripts/build_stations.py
 ```
 
 Built on [lightphone/light-sdk](https://github.com/lightphone/light-sdk) (MIT).
