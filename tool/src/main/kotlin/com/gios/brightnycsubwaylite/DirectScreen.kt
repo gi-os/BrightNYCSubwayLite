@@ -17,6 +17,7 @@ import com.gios.brightnycsubwaylite.data.Change
 import com.gios.brightnycsubwaylite.data.Plan
 import com.gios.brightnycsubwaylite.hw.WheelBus
 import com.gios.brightnycsubwaylite.hw.dispatch
+import com.gios.brightnycsubwaylite.ui.Action
 import com.gios.brightnycsubwaylite.ui.ChangeRow
 import com.gios.brightnycsubwaylite.ui.DirectRow
 import com.gios.brightnycsubwaylite.ui.FadeIn
@@ -26,6 +27,7 @@ import com.gios.brightnycsubwaylite.ui.PlanWords
 import com.gios.brightnycsubwaylite.ui.RouteBadgeRow
 import com.gios.brightnycsubwaylite.ui.StationLabel
 import com.gios.brightnycsubwaylite.ui.SubwayScreen
+import com.gios.brightnycsubwaylite.ui.TRY_AGAIN
 import com.gios.brightnycsubwaylite.ui.dimWhileRefreshing
 import com.gios.brightnycsubwaylite.ui.refreshButton
 import com.thelightphone.sdk.LightScreen
@@ -158,6 +160,12 @@ class DirectScreen(
                 refreshButton { viewModel.live.refreshNow() },
             ),
             message = if (names == null) "" else DirectWords.instead(following, view, later = after != null, changes = changes.isNotEmpty()),
+            // Lines that could not be checked are a connection to try again, said where the rider reads it.
+            actions = if (view is Plan.View.Unchecked && !following.loading && changes.isEmpty()) {
+                listOf(Action(TRY_AGAIN) { viewModel.live.refreshNow() })
+            } else {
+                emptyList()
+            },
         ) {
             if (names != null && plan != null && view != null && (trains != null || changes.isNotEmpty())) {
                 DirectPage(plan, view, changes, now, names)

@@ -31,6 +31,8 @@ import com.gios.brightnycsubwaylite.ui.SubwayScreen
 import com.gios.brightnycsubwaylite.ui.clockLabel
 import com.gios.brightnycsubwaylite.ui.dimWhileRefreshing
 import com.gios.brightnycsubwaylite.ui.notLive
+import com.gios.brightnycsubwaylite.ui.Action
+import com.gios.brightnycsubwaylite.ui.TRY_AGAIN
 import com.gios.brightnycsubwaylite.ui.refreshButton
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -188,6 +190,11 @@ class TrainScreen(
                 refreshButton { viewModel.live.refreshNow() },
             ),
             message = if (names == null) "" else TrainPageWords.instead(following, sighting),
+            actions = if (TrainPageWords.instead(following, sighting) == Board.View.Unavailable.text) {
+                listOf(Action(TRY_AGAIN) { viewModel.live.refreshNow() })
+            } else {
+                emptyList()
+            },
         ) {
             if (train != null && names != null && sighting != null) {
                 TrainPage(

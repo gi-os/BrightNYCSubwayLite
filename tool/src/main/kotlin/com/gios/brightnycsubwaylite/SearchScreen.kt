@@ -27,6 +27,7 @@ import com.gios.brightnycsubwaylite.ui.Page
 import com.gios.brightnycsubwaylite.ui.PlanWords
 import com.gios.brightnycsubwaylite.ui.RouteBadgeRow
 import com.gios.brightnycsubwaylite.ui.SubwayScreen
+import com.gios.brightnycsubwaylite.ui.Action
 import com.gios.brightnycsubwaylite.ui.searchButton
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.LightViewModel
@@ -186,6 +187,7 @@ class SearchScreen(
                 results.isEmpty() -> "No stations found for “$searched”.\n\nTry part of the name, a cross street or a line."
                 else -> null
             },
+            actions = if (searched != null && results.isEmpty()) listOf(Action("SEARCH AGAIN") { openKeyboard() }) else emptyList(),
         ) {
             origin?.let { Note(PlanWords.searching(it), Modifier.padding(bottom = 0.75f.gridUnitsAsDp())) }
             results.forEach { station ->

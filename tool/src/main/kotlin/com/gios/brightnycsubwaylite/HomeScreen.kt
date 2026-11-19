@@ -22,6 +22,8 @@ import com.gios.brightnycsubwaylite.hw.dispatch
 import com.gios.brightnycsubwaylite.ui.Page
 import com.gios.brightnycsubwaylite.ui.StationBoard
 import com.gios.brightnycsubwaylite.ui.SubwayScreen
+import com.gios.brightnycsubwaylite.ui.BoardTrouble
+import com.gios.brightnycsubwaylite.ui.Trouble
 import com.gios.brightnycsubwaylite.ui.refreshButton
 import com.gios.brightnycsubwaylite.ui.searchButton
 import com.thelightphone.sdk.InitialScreen
@@ -177,6 +179,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                 null
             },
         ) {
+            // One readable line over the boards when any of them could not get its times.
+            val trouble = remember(boards, now) { BoardTrouble.over(boards.map { it.view(now) }) }
+            if (trouble != null) Trouble(trouble, onRetry = { viewModel.live.refreshNow() })
             boards.forEach { board ->
                 key(board.station.id) {
                     val station = board.station
